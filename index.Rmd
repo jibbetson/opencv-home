@@ -1,0 +1,141 @@
+---
+title: "Adventures in OpenCV"
+author: "James Ibbetson"
+date: "Last updated October 4, 2017"
+output: html_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+## Overview
+The goal of this project to aquire some rudimentary skills in computer vision. In particular, basic video analysis such as motion detection and object tracking. To do this, I will use [OpenCV](http://opencv.org/), which is an open source computer vision library. OpenCV is intended to work with python (and c++) so - in the process - I will have to learn python.
+
+
+## Getting set up
+First, I needed to install on my macbook all the necessary software to get started working with opencv. It turns out this is a non-trivial process so, for future reference, the steps are captured here.  
+
+The final process detailed below is a mash up of steps and information from the following links (none of whose recipes worked), going down google rabbit holes, plus some trial and error.  
+
+- https://www.pyimagesearch.com/2016/12/19/install-opencv-3-on-macos-with-homebrew-the-easy-way/
+- https://www.pyimagesearch.com/2017/05/15/resolving-macos-opencv-homebrew-install-errors/
+- https://www.learnopencv.com/install-opencv3-on-macos/
+- https://martinapugliese.github.io/installing-opencv3-python3-macos/
+- https://www.digitalocean.com/community/tutorials/how-to-install-python-3-and-set-up-a-local-programming-environment-on-macos
+
+
+### Installing python
+Starting with loading python, there are two complications. First, python has two 'flavors': although python2 is in the process of becoming obsolete and python3 is the future, opencv (and other libraries) nonetheless require both versions. Second, macs come with a system version of python2 pre-installed. However, since this is not the latest 2.x it is considered bad form to use it for development purposes. So...once we are done, my computer will have 3 versions of python on it that have to be managed. On windows, the problem is 'solved' using a package manager such as Anaconda. On a mac, you use `Homebrew` and `pip` (a dedicated python package manager).
+
+Opening up a terminal, start by making sure Homebrew is up to date, and add the location it loads programs in PATH (so when we run the programs from terminal this is where the mac looks first).
+```
+$ brew update
+$ echo "# Homebrew" >> ~/.bash_profile
+$ echo "export PATH=/usr/local/bin:$PATH" >> ~/.bash_profile
+$ source ~/.bash_profile
+```
+(Alternatively, you can run `$ nano ~/.bash_profile` and edit the file directly.)  
+
+Step 2 (possibly not needed anymore since Homebrew recently moved popular formuale to homebrew-core)
+```
+$ brew tap homebrew/science
+```
+
+Step 3: Install Python 2 and Python 3
+```
+$ brew install python python3
+$ brew linkapps python
+$ brew linkapps python3
+```  
+
+Then check whether Homebrew installed python correctly and when we run it, the correct version is being run.
+```
+$ which python2   # it should output /usr/local/bin/python2
+$ which python3  # it should output /usr/local/bin/python3
+$ python2 --version  # in my case, returns Python 2.7.14
+$ python3 --version  # in my case, returns Python 3.6.3
+```
+
+### Installing python virtual environments
+It's important to create separate, independent python environments for each project (for sharing and/or customizing). To do this use [virtualenv](https://virtualenv.pypa.io/en/latest/) and [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io/en/latest/), which are easy to install using the `pip` command. However, I use `pip3` since I want my primary python to be python3:
+```
+$ pip3 install virtualenv virtualenvwrapper
+```
+Next I need to update my `~/.bash_profile` again so everything works together:
+```
+$ echo "# Virtualenv/VirtualenvWrapper" >> ~/.bash_profile
+$ echo "export VIRTUALENVWRAPPER_PYTHON=/usr/local/bin/python3" >> ~/.bash_profile
+$ echo "source /usr/local/bin/virtualenvwrapper.sh" >> ~/.bash_profile
+$ source ~/.bash_profile
+```
+
+I can now use the `mkvirtualenv` command to create a python3 virtual envrionment, which I'll call `cv`.
+```
+$ mkvirtualenv cv -p python3
+```
+Now use the `workon` command to see what environments are available, and to activate the environment. Note that the terminal prompt changes in the process (IMPORTANT):
+```
+$ workon
+cv
+$ workon cv
+(cv) $
+```
+I can add more packages to this virtual environment later. Use the `deactivate` command to return to the root environment.
+
+### Installing OpenCV3
+Like python, OpenCV comes in multiple flavors. I want to use the latest (geared towards python3) which is `opencv3`. However, if you install using Homebrew then `opencv` now defaults to `opencv3`. To install, type:
+```
+$ brew install opencv --with-contrib --with-python3
+```
+The first argument makes sure some more advanced OpenCV functions get loaded (SURF, SIFT). The second argument installs bindings to python3 (whereas python2 bindings are installed in addition by default).
+
+However, these bindings are in the wrong place so we have to move them. First, for the python2 bindings
+```
+$ echo /usr/local/opt/opencv/lib/python2.7/site-packages >> /usr/local/lib/python2.7/site-packages/opencv.pth
+```
+The bindings for python3 have the wrong name as well as being in the wrong place. So, renaming the appropriate file first:
+```
+$ cd /usr/local/opt/opencv/lib/python3.6/site-packages/
+$ mv cv2.cpython-36m-darwin.so cv2.so
+$ cd ~
+```
+then move `cv2.so` to the correct location, first in the root environment:
+```
+echo /usr/local/opt/opencv/lib/python3.6/site-packages >> /usr/local/lib/python3.6/site-packages/opencv.pth
+```
+
+and also into the `cv` virtual environment:
+```
+$ cd ~/.virtualenvs/cv/lib/python3.6/site-packages/
+$ ln -s /usr/local/opt/opencv/lib/python3.6/site-packages/cv2.so cv2.so
+$ cd ~
+```
+
+### Verify the OpenCV 3 install worked
+To verify that the OpenCV 3 + Python 3.6 installation is working you should:  
+- Open up a new terminal.  
+- Execute the `workon` command to access the `cv` Python virtual environment.  
+- Attempt to import the Python + OpenCV bindings.  
+
+Here are the exact steps you can use to test the install:
+```
+$ workon cv
+(cv) $ python
+Python 3.6.2 (default, Oct  1 2017, 03:29:14) 
+[GCC 4.2.1 Compatible Apple LLVM 8.0.0 (clang-800.0.42.1)] on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import cv2
+>>> cv2.__version__
+'3.3.0'
+>>> exit()
+(cv) $ deactivate
+$
+```
+Likewise, I can do the same install test in the root environment (but there I have to run `python3` because otherwise it defaults to the system version.)
+
+
+### R Markdown
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
